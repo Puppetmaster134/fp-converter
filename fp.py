@@ -109,16 +109,16 @@ def fp8_downcast(source_tensor : torch.Tensor, n_bits : int):
     
     #Shift the mantissa left by the target mantissa bits then use modulo to zero out anything outside of the mantissa
     t1 = (shift_left(mantissa,target_m_nbits) % (2**source_m_nbits))
-
     #Create a tensor of fp32 1's and convert them to int32
     t2 = torch.ones_like(source_tensor).view(int_type)
-
     #Use bitwise or to combine the 1-floats with the shifted mantissa to get the probabilities + 1 and then subtract 1
-    expectations = torch.bitwise_or(t1,t2).view(torch.float32) - 1
+    expectations = (torch.bitwise_or(t1,t2).view(source_tensor.dtype) - 1)
 
     #Stochastic rounding
-    r = torch.rand_like(expectations)
-    ones = torch.ceil(expectations - r).type(torch.uint8)
+    #torch.ceil doesnt work on float16 tensors
+    #https://github.com/pytorch/pytorch/issues/51199
+    r = torch.rand_like(expectations,dtype=torch.float32)
+    ones = torch.ceil(expectations.to(torch.float32) - r).type(torch.uint8)
 
     #Shift the sign, base, and mantissa into position
     target_sign = shift_left(sign,7)
@@ -126,7 +126,7 @@ def fp8_downcast(source_tensor : torch.Tensor, n_bits : int):
     target_base = shift_left(target_base, target_m_nbits).to(torch.uint8)
     target_mantissa = shift_right(mantissa, source_m_nbits - target_m_nbits).to(torch.uint8)
     fp8_as_uint8 = target_sign + target_base + target_mantissa
-
+    
     return fp8_as_uint8 + ones
 
 

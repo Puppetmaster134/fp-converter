@@ -93,6 +93,21 @@ class TestFPTest(unittest.TestCase):
             # The 8 bit overflows into the sign position making the number negative
             self.assertEqual(u2.item(), -0.5)
 
+    def test_rounding_rounding_fp8_uint8(self):
+
+        for src_dt in [torch.float16, torch.bfloat16, torch.float32]:
+
+            for n_mantissa in [3]:
+
+                x = torch.full((10,), fill_value=0.5, dtype=src_dt)
+
+                n_exp_bits = 7 - n_mantissa
+
+                x = ((x - 0.5) * 2)
+
+                x *= ((2 ** n_exp_bits) * (((2 ** n_mantissa) - 1) / (2 ** n_mantissa))) * 0.9
+
+                output = fp8_downcast(x, n_mantissa)
         
 if __name__ == '__main__':
     unittest.main()
